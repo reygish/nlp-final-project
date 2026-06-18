@@ -32,21 +32,28 @@ st.markdown(
 )
 
 @st.cache_resource
-def load_nltk_resources():
-    """Load NLTK NB model and frequency distribution."""
-    model_path = os.path.join("models", "nltk_nb_model.joblib")
+def load_bow_resources():
+    """Load Bag-of-Words model, DictVectorizer, and frequency distribution."""
+    model_path = os.path.join("models", "bow_model.joblib")
+    vectorizer_path = os.path.join("models", "bow_vectorizer.joblib")
+
     if not os.path.exists(model_path):
-        st.error("Missing NLTK model file: models/nltk_nb_model.joblib")
-        return None, None
+        st.error("Missing Bag-of-Words model file: models/bow_model.joblib")
+        return None, None, None
+
+    if not os.path.exists(vectorizer_path):
+        st.error("Missing Bag-of-Words vectorizer file: models/bow_vectorizer.joblib")
+        return None, None, None
 
     model = joblib.load(model_path)
+    dv = joblib.load(vectorizer_path)
 
     df = pd.read_csv("Symptom2Disease.csv")
     sentences = "  ".join(df["text"])
     cleaned_tokens = preprocess_tokens(sentences)
     fd = FreqDist(cleaned_tokens)
 
-    return model, fd
+    return model, dv, fd
 
 @st.cache_resource
 def load_tfidf_resources():
@@ -165,16 +172,20 @@ def load_glove_embeddings(path, vector_size=100):
             embeddings[word] = vector
     return embeddings
 
-def predict_nltk(symptom_text: str, model, fd: FreqDist):
+def predict_nltk(symptom_text: str, model, dv, fd: FreqDist):
     if not symptom_text.strip():
         return None, None
 
     tokens = preprocess_tokens(symptom_text)
     features = feature_extraction(tokens, fd)
 
-    prediction = model.classify(features)
-    probabilities = model.prob_classify(features)
-    confidence = probabilities.prob(prediction)
+    features_vec = dv.transform([features])
+    prediction = model.predict(features_vec)[0]
+
+    if hasattr(model, "predict_proba"):
+        confidence = float(np.max(model.predict_proba(features_vec)))
+    else:
+        confidence = None
 
     return prediction, confidence
 
@@ -225,13 +236,13 @@ def predict_glove(symptom_text: str, model, glove_embeddings, vector_size=300):
 
 model_choice = st.radio(
     "Choose a model:",
-    ["NLTK-NBClassifier", "TF-IDF", "Word2Vec", "GloVe"],
+    ["Bag-of-Words", "TF-IDF", "Word2Vec", "GloVe"],
     horizontal=True
 )
 
 resources = None
-if model_choice == "NLTK-NBClassifier":
-    resources = load_nltk_resources()
+if model_choice == "Bag-of-Words":
+    resources = load_bow_resources()
 elif model_choice == "TF-IDF":
     resources = load_tfidf_resources()
 elif model_choice == "Word2Vec":
@@ -253,9 +264,9 @@ if resources and all(item is not None for item in resources):
     if st.button("Predict Disease", type="primary"):
         if symptom_input.strip():
             with st.spinner("Analyzing symptoms..."):
-                if model_choice == "NLTK-NBClassifier":
-                    model, fd = resources
-                    prediction, confidence = predict_nltk(symptom_input, model, fd)
+                if model_choice == "Bag-of-Words":
+                    model, dv, fd = resources
+                    prediction, confidence = predict_nltk(symptom_input, model, dv, fd)
                 elif model_choice == "TF-IDF":
                     model, vectorizer = resources
                     prediction, confidence = predict_tfidf(symptom_input, model, vectorizer)
