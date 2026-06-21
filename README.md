@@ -44,14 +44,6 @@ The app will open in your default browser at `http://localhost:8501`
 3. View the predicted disease and confidence score
 4. **Important**: This is an AI-based tool for informational purposes. Always consult with a healthcare professional for medical advice.
 
-## Files
-
-- **model.pkl**: Trained Naive Bayes classifier
-- **Symptom2Disease.csv**: Training data with symptoms and disease labels
-- **solution.ipynb**: Original notebook with model training code
-- **streamlit_app.py**: Streamlit web application
-- **requirements.txt**: Python dependencies
-
 ## Features
 
 - 🏥 Clean, user-friendly interface
